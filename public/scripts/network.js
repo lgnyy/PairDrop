@@ -1009,10 +1009,24 @@ class PeersManager {
         Events.on('ws-disconnected', _ => this._onWsDisconnected());
         Events.on('ws-relay', e => this._onWsRelay(e.detail));
         Events.on('ws-config', e => this._onWsConfig(e.detail));
+        Events.on('ws-config-refresh', _ => this._onWsConfigRefresh());
     }
 
     _onWsConfig(wsConfig) {
         this._wsConfig = wsConfig;
+        // merge user-customized TURN/STUN config into the server-provided rtcConfig
+        if (window.TurnConfig) {
+            this._wsConfig.rtcConfig = window.TurnConfig.applyTurnConfig(this._wsConfig.rtcConfig);
+        }
+    }
+
+    _onWsConfigRefresh() {
+        // user changed TURN/STUN config: re-apply it to the cached rtcConfig.
+        // existing PeerConnections keep their old config; new connections use the new one.
+        if (this._wsConfig && window.TurnConfig) {
+            this._wsConfig.rtcConfig = window.TurnConfig.applyTurnConfig(this._wsConfig.rtcConfig);
+            console.log('RTC config refreshed:', this._wsConfig.rtcConfig);
+        }
     }
 
     _onMessage(message) {
@@ -1311,3 +1325,126 @@ class FileDigester {
         }));
     }
 }
+
+// ========== TURN / STUN 配置管理 ==========
+const ICE_CONFIG_KEY = 'pairdrop_ice_config';
+
+/**
+ * 从 localStorage 读取用户自定义的 TURN/STUN 配置
+ * @returns {{url: string, username: string, credential: string} | null}
+ */
+function getStoredTurnConfig() {
+    try {
+        const raw = localStorage.getItem(ICE_CONFIG_KEY);
+        if (!raw) return null;
+        const cfg = JSON.parse(raw);
+        if (!cfg || !cfg.url) return null;
+        return cfg;
+    } catch (e) {
+        console.warn('读取 TURN 配置失败:', e);
+        return null;
+    }
+}
+
+/**
+ * 保存 TURN 配置到 localStorage
+ * @param {{url: string, username: string, credential: string}} cfg
+ */
+function saveTurnConfig(cfg) {
+    try {
+        localStorage.setItem(ICE_CONFIG_KEY, JSON.stringify(cfg));
+    } catch (e) {
+        console.warn('保存 TURN 配置失败:', e);
+    }
+}
+
+/**
+ * 清除自定义 TURN 配置
+ */
+function clearTurnConfig() {
+    try {
+        localStorage.removeItem(ICE_CONFIG_KEY);
+    } catch (e) {
+        console.warn('清除 TURN 配置失败:', e);
+    }
+}
+
+/**
+ * 根据用户配置生成自定义 ICE 服务器条目（不含默认 STUN）。
+ * 遵循 WebRTC 契约：TURN 条目必须有非空 username + credential，否则移除。
+ * @returns {RTCIceServer[]}
+ */
+function getCustomIceServers() {
+    const cfg = getStoredTurnConfig();
+    if (!cfg || !cfg.url) return [];
+
+    const url = cfg.url.trim();
+
+    // 自动补全协议前缀：用户只填 host:port 时默认按 turn: 处理
+    let urls = url;
+    if (!/^(turn|turns|stun|stuns):/i.test(urls)) {
+        urls = 'turn:' + urls;
+    }
+
+    const server = { urls };
+
+    // 只有 TURN 才需要 username / credential；缺凭据则移除该条目，避免 PeerConnection 创建失败
+    if (/^turns?:/i.test(urls)) {
+        if (cfg.username && cfg.credential) {
+            server.username = cfg.username;
+            server.credential = cfg.credential;
+        } else {
+            // 没有完整凭据，当作 STUN 使用
+            server.urls = urls.replace(/^turns?:/i, 'stun:');
+        }
+    }
+
+    return [server];
+}
+
+/**
+ * 将用户自定义 TURN 配置合并进服务端下发的 rtcConfig。
+ * - 用户配置的服务器放在 iceServers 最前（优先使用）
+ * - 保留服务端默认的 STUN 作为兜底
+ * - 对合并后的 iceServers 做契约净化：剔除空 urls、非法 TURN
+ * @param {RTCConfiguration} rtcConfig
+ * @returns {RTCConfiguration}
+ */
+function applyTurnConfig(rtcConfig) {
+    if (!rtcConfig) rtcConfig = {};
+    const baseServers = Array.isArray(rtcConfig.iceServers) ? rtcConfig.iceServers : [];
+    const customServers = getCustomIceServers();
+
+    // 合并：自定义在前，服务端默认在后
+    const merged = customServers.concat(baseServers);
+
+    // 运行时净化：剔除空 urls 与缺凭据的 TURN
+    const cleaned = merged.filter(s => {
+        if (!s || !s.urls) return false;
+        const urls = Array.isArray(s.urls) ? s.urls[0] : s.urls;
+        if (/^turns?:/i.test(urls)) {
+            return !!(s.username && s.credential);
+        }
+        return true;
+    });
+
+    return Object.assign({}, rtcConfig, { iceServers: cleaned });
+}
+
+/**
+ * 刷新 RTC 配置：通知 PeersManager 重建 wsConfig.rtcConfig。
+ * 已存在的 PeerConnection 不会自动更新，需要重新建立连接。
+ */
+function refreshRtcConfig() {
+    Events.fire('ws-config-refresh');
+}
+
+// 暴露到全局，供 ui.js 调用
+window.TurnConfig = {
+    getStoredTurnConfig,
+    saveTurnConfig,
+    clearTurnConfig,
+    getCustomIceServers,
+    applyTurnConfig,
+    refreshRtcConfig,
+};

@@ -2740,3 +2740,78 @@ class NoSleepUI {
         }
     }
 }
+
+// ========== TURN / STUN 配置对话框 ==========
+class TurnConfigDialog extends Dialog {
+
+    constructor() {
+        super('turn-config-dialog');
+
+        this.$turnBtn = $('turn-settings-btn');
+        this.$url = this.$el.querySelector('#turn-url');
+        this.$username = this.$el.querySelector('#turn-username');
+        this.$credential = this.$el.querySelector('#turn-credential');
+        this.$saveBtn = this.$el.querySelector('#turn-save-btn');
+        this.$resetBtn = this.$el.querySelector('#turn-reset-btn');
+
+        this.$turnBtn.addEventListener('click', _ => this._onOpen());
+        this.$saveBtn.addEventListener('click', _ => this._onSave());
+        this.$resetBtn.addEventListener('click', _ => this._onReset());
+    }
+
+    _onOpen() {
+        const cfg = window.TurnConfig.getStoredTurnConfig();
+        if (cfg) {
+            this.$url.value = cfg.url || '';
+            this.$username.value = cfg.username || '';
+            this.$credential.value = cfg.credential || '';
+        } else {
+            this.$url.value = '';
+            this.$username.value = '';
+            this.$credential.value = '';
+        }
+        this.show();
+    }
+
+    /**
+     * 校验 URL 格式：必须是 turn/turns/stun/stuns 协议，
+     * 或者是 host[:port] 形式（不含路径）。
+     */
+    _validateUrl(url) {
+        if (!url) return false;
+        return /^(turn|turns|stun|stuns):/i.test(url)
+            || /^[\w.-]+(:\d+)?$/.test(url);
+    }
+
+    _onSave() {
+        const url = this.$url.value.trim();
+        const username = this.$username.value.trim();
+        const credential = this.$credential.value;
+
+        if (!url) {
+            Events.fire('notify-user', '请填写服务器地址');
+            return;
+        }
+        if (!this._validateUrl(url)) {
+            Events.fire('notify-user', '服务器地址格式不正确，请使用 turn:host:port 或 host:port');
+            return;
+        }
+
+        window.TurnConfig.saveTurnConfig({ url, username, credential });
+        window.TurnConfig.refreshRtcConfig();
+
+        Events.fire('notify-user', 'TURN 配置已保存，将用于新建的连接');
+        this.hide();
+    }
+
+    _onReset() {
+        window.TurnConfig.clearTurnConfig();
+        window.TurnConfig.refreshRtcConfig();
+
+        this.$url.value = '';
+        this.$username.value = '';
+        this.$credential.value = '';
+
+        Events.fire('notify-user', '已恢复默认 ICE 服务器配置');
+    }
+}

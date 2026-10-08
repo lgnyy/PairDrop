@@ -177,6 +177,7 @@ class PairDrop {
         this.publicRoomDialog = new PublicRoomDialog();
         this.base64Dialog = new Base64Dialog();
         this.shareTextDialog = new ShareTextDialog();
+        this.turnConfigDialog = new TurnConfigDialog();
         this.toast = new Toast();
         this.notifications = new Notifications();
         this.networkStatusUI = new NetworkStatusUI();

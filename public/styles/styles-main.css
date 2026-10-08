@@ -908,6 +908,71 @@ x-peers:empty~x-instructions {
     }
 }
 
+/* ===== TURN / STUN 配置对话框 ===== */
+
+.turn-config-container {
+    gap: 16px;
+    padding: 0 24px;
+}
+
+.turn-field {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    text-align: left;
+}
+
+.turn-field label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text, #333);
+}
+
+.turn-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    border: 1px solid var(--color-border, #ccc);
+    border-radius: 6px;
+    background: var(--color-input-background, #fff);
+    color: var(--color-text, #333);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.turn-input:focus {
+    border-color: var(--color-primary, #2196f3);
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+.turn-hint {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--color-text-secondary, #888);
+    text-align: left;
+}
+
+.turn-hint code {
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--color-code-background, #f5f5f5);
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.turn-actions {
+    margin-top: 8px;
+    padding: 0 24px 24px;
+}
+
+#turn-settings-btn svg path {
+    fill: currentColor;
+}
+
 /* PWA Standalone styles */
 @media all and (display-mode: standalone) {
     footer {
