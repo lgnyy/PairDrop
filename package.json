@@ -6,7 +6,10 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "start:prod": "node server/index.js --rate-limit --auto-restart"
+    "start:prod": "node server/index.js --rate-limit --auto-restart",
+    "dev:worker": "wrangler dev",
+    "deploy:worker": "wrangler deploy",
+    "tail:worker": "wrangler tail"
   },
   "author": "",
   "license": "ISC",
@@ -19,5 +22,8 @@
   },
   "engines": {
     "node": ">=15"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   }
 }

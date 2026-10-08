@@ -1,0 +1,17 @@
+name = "pairdrop"
+main = "src/index.js"
+compatibility_date = "2025-03-01"
+
+# Everything in public/ is served as static assets (index.html, scripts,
+# images, styles, sounds, lang). Requests that match no asset -- i.e.
+# /config and /server -- fall through to the Worker below.
+[assets]
+directory = "./public"
+
+[[durable_objects.bindings]]
+name = "PAIRDROP"
+class_name = "PairDropDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PairDropDO"]
